@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 func newServer(port uint64, ld *loadController, l *log.Logger) *http.Server {
 	router := http.NewServeMux()
 	router.Handle("/", indexHandler())
-	router.Handle("/cpu", updateCPUPctHandler(ld))
+	router.Handle("/cpu", cpuHandler(ld))
 
 	return &http.Server{
 		Addr:         ":" + strconv.FormatUint(port, 10),
@@ -36,33 +37,41 @@ func indexHandler() http.Handler {
 	return http.FileServer(statikFS)
 }
 
-// updateCPUPctHandler handles requests for updating CPU load percentage.
-func updateCPUPctHandler(lc *loadController) http.Handler {
+// cpuHandler handles requests for:
+// - (GET)  getting current CPU utilisation levels;
+// - (POST) updating CPU load percentage.
+func cpuHandler(lc *loadController) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
+		switch r.Method {
+		case http.MethodGet:
+			b, err := json.Marshal(lc.cpuUsage())
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
+			}
+			w.Write(b)
+		case http.MethodPost:
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
+				return
+			}
+
+			v := r.FormValue("pct")
+			pct, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				http.Error(w, "Invalid percentage value", http.StatusBadRequest)
+				return
+			}
+
+			if pct < 0 || pct > 100 {
+				http.Error(w, "Percentage value must be between 0-100", http.StatusBadRequest)
+				return
+			}
+
+			lc.updateCPULoad(pct)
+			w.WriteHeader(http.StatusAccepted)
+			w.Write([]byte("CPU load percentage updated"))
+		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
 		}
-
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
-			return
-		}
-
-		v := r.FormValue("pct")
-		pct, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			http.Error(w, "Invalid percentage value", http.StatusBadRequest)
-			return
-		}
-
-		if pct < 0 || pct > 100 {
-			http.Error(w, "Percentage value must be between 0-100", http.StatusBadRequest)
-			return
-		}
-
-		lc.updateCPULoad(pct)
-		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte("CPU load percentage updated"))
 	})
 }

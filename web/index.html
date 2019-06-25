@@ -12,9 +12,13 @@
     <h1>Welcome to Schwer</h1>
   </header>
   <div id="content">
+    <div>
+      <h4>CPU monitor</h4>
+      <p id="cpu-monitor"></p>
+    </div>
     <form id="cpu-pct" method="POST" action="/cpu">
-        <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />
-        <input type="submit" value="Update" />
+      <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />
+      <input type="submit" value="Update" />
     </form>
   </div>
   <footer>

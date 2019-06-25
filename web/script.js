@@ -18,4 +18,20 @@ $(document).ready(function() {
     });
   });
 
+  // This functions updates CPU utilisation levels.
+  function cpuPoll() {
+    var status = $("#cpu-monitor");
+    $.ajax({
+      type: "GET",
+      url: "/cpu",
+      dataType: "json",
+      success: function(data) {
+        status.text(data);
+      }
+    });
+  };
+
+  // Execute cpuPoll() once per second.
+  setInterval(cpuPoll, 1000);
+
 });
