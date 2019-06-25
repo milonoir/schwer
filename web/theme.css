@@ -32,7 +32,7 @@ input {
 }
 input[type=submit] {
   font-size: 18pt;
-  background-color: #bbb;
+  background-color: #ddd;
 }
 footer {
   position: absolute;

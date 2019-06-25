@@ -13,8 +13,11 @@ import (
 )
 
 const (
-	minPort = 1024
-	maxPort = 65535
+	minPort     = 1024
+	maxPort     = 65535
+	defaultPort = 9999
+
+	serverShutdownTimeout = 30 * time.Second
 )
 
 func main() {
@@ -24,9 +27,11 @@ func main() {
 	}
 }
 
+// _main sets up all moving parts. It is not done in main() in order to be able to
+// execute deferred functions and return an error.
 func _main() error {
 	// Parse command line args.
-	port := flag.Uint64("port", 9999, "the port number (1024-65535) the server binds to")
+	port := flag.Uint64("port", defaultPort, fmt.Sprintf("the port number (%d-%d) the server binds to", minPort, maxPort))
 	flag.Parse()
 
 	// Validate port.
@@ -39,12 +44,12 @@ func _main() error {
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
 	// Setup load handlers.
-	load := newLoad(runtime.NumCPU(), logger)
-	load.start()
-	defer load.stop()
+	lc := newLoadController(runtime.NumCPU(), logger)
+	lc.start()
+	defer lc.stop()
 
 	// Setup HTTP server.
-	server := newServer(*port, load, logger)
+	server := newServer(*port, lc, logger)
 
 	// Setup signal handler.
 	sigCh := make(chan os.Signal, 1)
@@ -53,7 +58,7 @@ func _main() error {
 		<-sigCh
 		logger.Println("shutting down...")
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), serverShutdownTimeout)
 		defer cancel()
 
 		server.SetKeepAlivesEnabled(false)

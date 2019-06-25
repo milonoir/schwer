@@ -11,10 +11,10 @@ import (
 	"github.com/rakyll/statik/fs"
 )
 
-func newServer(port uint64, ld *load, l *log.Logger) *http.Server {
+// newServer returns a new configured http.Server with all endpoints registered to it.
+func newServer(port uint64, ld *loadController, l *log.Logger) *http.Server {
 	router := http.NewServeMux()
 	router.Handle("/", indexHandler())
-	router.Handle("/hello", helloHandler())
 	router.Handle("/cpu", updateCPUPctHandler(ld))
 
 	return &http.Server{
@@ -27,6 +27,7 @@ func newServer(port uint64, ld *load, l *log.Logger) *http.Server {
 	}
 }
 
+// indexHandler is the main web front-end handler.
 func indexHandler() http.Handler {
 	statikFS, err := fs.New()
 	if err != nil {
@@ -35,13 +36,8 @@ func indexHandler() http.Handler {
 	return http.FileServer(statikFS)
 }
 
-func helloHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "hello")
-	})
-}
-
-func updateCPUPctHandler(l *load) http.Handler {
+// updateCPUPctHandler handles requests for updating CPU load percentage.
+func updateCPUPctHandler(lc *loadController) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -49,24 +45,24 @@ func updateCPUPctHandler(l *load) http.Handler {
 		}
 
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, fmt.Sprintf("unable to parse request: %s", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
 			return
 		}
 
 		v := r.FormValue("pct")
 		pct, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			http.Error(w, "invalid percentage value", http.StatusBadRequest)
+			http.Error(w, "Invalid percentage value", http.StatusBadRequest)
 			return
 		}
 
 		if pct < 0 || pct > 100 {
-			http.Error(w, "percentage must be between 0-100", http.StatusBadRequest)
+			http.Error(w, "Percentage value must be between 0-100", http.StatusBadRequest)
 			return
 		}
 
-		l.updateCPUPct(int32(pct))
+		lc.updateCPULoad(pct)
 		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte("cpu percentage updated"))
+		w.Write([]byte("CPU load percentage updated"))
 	})
 }
