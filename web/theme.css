@@ -1,3 +1,49 @@
-h1 {
-  color: #176
+html {
+  background-color: white;
+}
+body {
+  text-align: center;
+  width: 80%;
+  margin-top: 0;
+  margin-left: 10%;
+  font-family: 'Roboto', sans-serif;
+}
+header {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  background-color: black;
+  color: white;
+  border: 0;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+#content {
+  margin-top: 1em;
+  margin-bottom: 1em;
+  font-size: 18pt;
+}
+input {
+	margin-left: 0.5em;
+  border-radius: 5px;
+  border-width: 1px;
+  border-color: black;
+  font-size: 18pt;
+}
+input[type=submit] {
+  font-size: 18pt;
+  background-color: #bbb;
+}
+footer {
+  position: absolute;
+  bottom: 0;
+  width: 80%;
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  border: 0;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  background-color: black;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
 }

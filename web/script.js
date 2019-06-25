@@ -2,7 +2,7 @@ $(document).ready(function() {
 
   // This function submits the cpu percentage update form using AJAX
   // without redirecting to the /cpu endpoint.
-  $("#cpuPct").submit(function(e) {
+  $("#cpu-pct").submit(function(e) {
     e.preventDefault();
 
     var form = $(this);

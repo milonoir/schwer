@@ -3,16 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="stylesheet" type="text/css" href="theme.css">
+  <link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet'>
   <script src="jquery-3.4.1.min.js"></script>
   <script src="script.js"></script>
 </head>
 <body>
-  <div>
+  <header>
     <h1>Welcome to Schwer</h1>
-    <form id="cpuPct" method="POST" action="/cpu">
-        <label>CPU load (%):</label><input name="pct" type="number" value="" />
+  </header>
+  <div id="content">
+    <form id="cpu-pct" method="POST" action="/cpu">
+        <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />
         <input type="submit" value="Update" />
     </form>
   </div>
+  <footer>
+    <p>&copy; 2019 Multiplay | A Unity Technologies Company | All Rights Reserved.</p>
+  </footer>
 </body>
 </html>
