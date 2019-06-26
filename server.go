@@ -17,6 +17,7 @@ func newServer(port uint64, ld *loadController, l *log.Logger) *http.Server {
 	router := http.NewServeMux()
 	router.Handle("/", indexHandler())
 	router.Handle("/cpu", cpuHandler(ld))
+	router.Handle("/mem", memHandler(ld))
 
 	return &http.Server{
 		Addr:         ":" + strconv.FormatUint(port, 10),
@@ -70,6 +71,21 @@ func cpuHandler(lc *loadController) http.Handler {
 			lc.updateCPULoad(pct)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte("CPU load percentage updated"))
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+func memHandler(lc *loadController) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			b, err := json.Marshal(lc.memUsage())
+			if err != nil {
+				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
+			}
+			w.Write(b)
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}

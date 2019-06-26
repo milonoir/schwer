@@ -18,22 +18,29 @@ $(document).ready(function() {
     });
   });
 
-  const meterWidth = 50;
-  const meterHeight = 102;
-  const gap = 30;
+  const colorBlack = "#000000";
+  const colorWhite = "#ffffff";
 
-  function draw(data) {
+  const colorRed = "#d53600";
+  const colorAmber = "#ffbf00";
+  const colorGreen = "#60a917";
+
+  const cpuMeterWidth = 50;
+  const cpuMeterHeight = 102;
+  const cpuGap = 30;
+
+  function drawCPU(data) {
     var canvas = document.getElementById("cpu-monitor");
     if (canvas.getContext) {
       var ctx = canvas.getContext("2d");
 
       // Clear canvas.
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = colorWhite;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Handle error message.
       if (typeof(data) === "string") {
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = colorBlack;
         ctx.font = "24px Arial";
         ctx.textAlign = "center";
         ctx.fillText(data, canvas.width / 2, canvas.height / 2);
@@ -41,37 +48,99 @@ $(document).ready(function() {
       }
 
       // Determine coordinates of the first CPU meter.
-      var startX = (canvas.width - (data.length * meterWidth + (data.length - 1) * gap)) / 2;
-      var startY = (canvas.height - meterHeight) / 2;
+      var startX = (canvas.width - (data.length * cpuMeterWidth + (data.length - 1) * cpuGap)) / 2;
+      var startY = (canvas.height - cpuMeterHeight) / 2;
 
       for (i = 0; i < data.length; i++) {
-        var x = startX + i * (meterWidth + gap);
+        var x = startX + i * (cpuMeterWidth + cpuGap);
 
         // Meter border. Less code than ctx.rect().
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(x, startY, meterWidth, meterHeight);
+        ctx.fillStyle = colorBlack;
+        ctx.fillRect(x, startY, cpuMeterWidth, cpuMeterHeight);
 
         // Fill in the entire meter with the color matching the load level.
         if (data[i] >= 90) {
-          ctx.fillStyle = "#d53600"; // Red above 90%.
+          ctx.fillStyle = colorRed;
         } else if (data[i] >= 70) {
-          ctx.fillStyle = "#ffbf00"; // Amber above 70%.
+          ctx.fillStyle = colorAmber;
         } else {
-          ctx.fillStyle = "#60a917"; // Green below 70%.
+          ctx.fillStyle = colorGreen;
         }
-        ctx.fillRect(x + 1, startY + 1, meterWidth - 2, meterHeight - 2);
+        ctx.fillRect(x + 1, startY + 1, cpuMeterWidth - 2, cpuMeterHeight - 2);
 
-        // Paint the 100% - level part white.
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(x + 1, startY + 1, meterWidth - 2, meterHeight - 2 - data[i]);
-
-        // Add textual representation of load level. This gives the impression of the meters
+        // Paint the 100% - level part white. This gives the impression of the meters
         // filling up from the bottom.
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = colorWhite;
+        ctx.fillRect(x + 1, startY + 1, cpuMeterWidth - 2, cpuMeterHeight - 2 - data[i]);
+
+        // Add textual representation of load level.
+        ctx.fillStyle = colorBlack;
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(data[i].toString(), x + meterWidth / 2, startY + meterHeight / 2);
+        ctx.textBaseline = "middle";
+        ctx.fillText(data[i].toString() + "%", x + cpuMeterWidth / 2, startY + cpuMeterHeight / 2);
       }
+    }
+  };
+
+  const memMeterWidth = 502;
+  const memMeterHeight = 102;
+
+  function drawMem(data) {
+    var canvas = document.getElementById("mem-monitor");
+    if (canvas.getContext) {
+      var ctx = canvas.getContext("2d");
+
+      // Clear canvas.
+      ctx.fillStyle = colorWhite;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Handle error message.
+      if (typeof(data) === "string") {
+        ctx.fillStyle = colorBlack;
+        ctx.font = "24px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(data, canvas.width / 2, canvas.height / 2);
+        return;
+      }
+
+      var x = (canvas.width - memMeterWidth) / 2;
+      var y = (canvas.height - memMeterHeight) / 2;
+
+      // Meter border. Less code than ctx.rect().
+      ctx.fillStyle = colorBlack;
+      ctx.fillRect(x, y, memMeterWidth, memMeterHeight);
+
+      // Paint it all white.
+      ctx.fillStyle = colorWhite;
+      ctx.fillRect(x + 1, y + 1, memMeterWidth - 2, memMeterHeight - 2);
+
+      if (data.usedpct >= 90) {
+        ctx.fillStyle = colorRed;
+      } else if (data.usedpct >= 70) {
+        ctx.fillStyle = colorAmber;
+      } else {
+        ctx.fillStyle = colorGreen;
+      }
+      ctx.fillRect(x + 1, y + 1, memMeterWidth * data.usedpct / 100, memMeterHeight - 2);
+
+      // Add textual representation of stats.
+      ctx.fillStyle = colorBlack;
+      ctx.font = "16px Arial";
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "hanging";
+      ctx.fillText("0 MB", x, y + memMeterHeight + 10);
+      ctx.fillText(data.total + " MB", x + memMeterWidth, y + memMeterHeight + 10);
+
+      ctx.textBaseline = "middle";
+      ctx.fillText(data.usedpct + "%", x + memMeterWidth / 2, y + memMeterHeight / 2);
+
+      ctx.textAlign = "start";
+      ctx.fillText(data.used + " MB", x + 10, y + memMeterHeight / 2);
+
+      ctx.textAlign = "end";
+      ctx.fillText(data.available + " MB", x + memMeterWidth - 10, y + memMeterHeight / 2);
     }
   };
 
@@ -86,16 +155,34 @@ $(document).ready(function() {
       dataType: "json",
       success: function(data) {
         fb.text(data);
-        draw(data);
+        drawCPU(data);
       },
       error: function() {
         fb.text(errServerDown);
-        draw(errServerDown);
+        drawCPU(errServerDown);
       }
     });
   };
 
-  // Execute cpuPoll() once per second.
+  function memPoll() {
+    var fb = $("#mem-monitor-fallback");
+    $.ajax({
+      type: "GET",
+      url: "/mem",
+      dataType: "json",
+      success: function(data) {
+        fb.text(JSON.stringify(data));
+        drawMem(data);
+      },
+      error: function() {
+        fb.text(errServerDown);
+        drawMem(errServerDown);
+      }
+    })
+  };
+
+  // Poll CPU and memory once per second.
   setInterval(cpuPoll, 1000);
+  setInterval(memPoll, 1000);
 
 });

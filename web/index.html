@@ -12,16 +12,22 @@
     <h1>Welcome to Schwer</h1>
   </header>
   <div id="content">
-    <div>
-      <h4 id="cpu-monitor-header">CPU monitor</h4>
+    <div class="section">
+      <h3 id="cpu-monitor-header">CPU monitor</h3>
       <canvas id="cpu-monitor" width="1000" height="150">
         <p id="cpu-monitor-fallback"></p>
       </canvas>
+      <form id="cpu-pct" method="POST" action="/cpu">
+        <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />
+        <input type="submit" value="Update" />
+      </form>
     </div>
-    <form id="cpu-pct" method="POST" action="/cpu">
-      <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />
-      <input type="submit" value="Update" />
-    </form>
+    <div class="section">
+      <h3 id="mem-monitor-header">Memory monitor</h3>
+      <canvas id="mem-monitor" width="600" height="150">
+        <p id="mem-monitor-fallback"></p>
+      </canvas>
+    </div>
   </div>
   <footer>
     <p>&copy; 2019 Multiplay | A Unity Technologies Company | All Rights Reserved.</p>

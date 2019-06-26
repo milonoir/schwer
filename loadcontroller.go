@@ -8,12 +8,22 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
 )
 
 const (
 	// defaultCPULoadPct is used on start-up.
 	defaultCPULoadPct = 10
+
+	megaBytes = 1 << 20
 )
+
+type memoryStats struct {
+	Total     int `json:"total"`
+	Available int `json:"available"`
+	Used      int `json:"used"`
+	UsedPct   int `json:"usedpct"`
+}
 
 // loadController is responsible for generating the requested amount of CPU load over time.
 type loadController struct {
@@ -24,7 +34,10 @@ type loadController struct {
 	cpuCores  int
 	cpuChange []chan time.Duration
 	cpuUtil   []int
-	mtxUtil   sync.RWMutex
+	cpuMtx    sync.RWMutex
+
+	memStat memoryStats
+	memMtx  sync.RWMutex
 }
 
 // newLoadController returns a configured loadController.
@@ -42,8 +55,9 @@ func newLoadController(cpuCores int, l *log.Logger) *loadController {
 func (lc *loadController) start() {
 	lc.logger.Println("starting load")
 
-	lc.wg.Add(1)
+	lc.wg.Add(2)
 	go lc.cpuMonitor()
+	go lc.memMonitor()
 
 	lc.wg.Add(lc.cpuCores)
 	for i := 0; i < lc.cpuCores; i++ {
@@ -80,8 +94,8 @@ func (lc *loadController) cpuMonitor() {
 
 // saveCPUUtilisation rounds values to the closest integer and stores them in a slice.
 func (lc *loadController) saveCPUUtilisation(values []float64) {
-	lc.mtxUtil.Lock()
-	defer lc.mtxUtil.Unlock()
+	lc.cpuMtx.Lock()
+	defer lc.cpuMtx.Unlock()
 
 	for i, v := range values {
 		lc.cpuUtil[i] = int(math.Round(v))
@@ -90,8 +104,8 @@ func (lc *loadController) saveCPUUtilisation(values []float64) {
 
 // cpuUsage returns a copy of the stored CPU utilisation levels.
 func (lc *loadController) cpuUsage() []int {
-	lc.mtxUtil.RLock()
-	defer lc.mtxUtil.RUnlock()
+	lc.cpuMtx.RLock()
+	defer lc.cpuMtx.RUnlock()
 
 	// Return a deep-copy of values so we're not racy.
 	u := make([]int, len(lc.cpuUtil))
@@ -131,4 +145,40 @@ func (lc *loadController) updateCPULoad(pct int64) {
 	for _, ch := range lc.cpuChange {
 		ch <- lc.sleepDuration(pct)
 	}
+}
+
+func (lc *loadController) memMonitor() {
+	defer lc.wg.Done()
+
+	for {
+		select {
+		case <-lc.cancel:
+			return
+		default:
+			memStat, err := mem.VirtualMemory()
+			if err != nil {
+				lc.logger.Printf("error in getting virtual memory stats: %s\n", err)
+				continue
+			}
+			lc.saveMemUsage(memStat.Total, memStat.Available, memStat.Used, memStat.UsedPercent)
+			time.Sleep(time.Second)
+		}
+	}
+}
+
+func (lc *loadController) saveMemUsage(total, avail, used uint64, usedPct float64) {
+	lc.memMtx.Lock()
+	defer lc.memMtx.Unlock()
+
+	lc.memStat.Total = int(total / megaBytes)
+	lc.memStat.Available = int(avail / megaBytes)
+	lc.memStat.Used = int(used / megaBytes)
+	lc.memStat.UsedPct = int(math.Round(usedPct))
+}
+
+func (lc *loadController) memUsage() memoryStats {
+	lc.cpuMtx.RLock()
+	defer lc.cpuMtx.RUnlock()
+
+	return lc.memStat
 }

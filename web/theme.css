@@ -26,6 +26,17 @@ header {
 #cpu-monitor-header {
   margin-bottom: 0.5em;
 }
+#mem-monitor-header {
+  margin-bottom: 0.5em;
+}
+.section {
+  margin-bottom: 1em;
+  padding-bottom: 1em;
+  border-width: thin;
+  border-style: solid;
+  border-color: black;
+  border-radius: 10px;
+}
 input {
 	margin-left: 0.5em;
   border-radius: 5px;
