@@ -13,8 +13,10 @@
   </header>
   <div id="content">
     <div>
-      <h4>CPU monitor</h4>
-      <p id="cpu-monitor"></p>
+      <h4 id="cpu-monitor-header">CPU monitor</h4>
+      <canvas id="cpu-monitor" width="1000" height="150">
+        <p id="cpu-monitor-fallback"></p>
+      </canvas>
     </div>
     <form id="cpu-pct" method="POST" action="/cpu">
       <label>CPU load (%):</label><input name="pct" type="number" min="0" max="100" />

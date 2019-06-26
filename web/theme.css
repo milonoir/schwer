@@ -23,6 +23,9 @@ header {
   margin-bottom: 1em;
   font-size: 18pt;
 }
+#cpu-monitor-header {
+  margin-bottom: 0.5em;
+}
 input {
 	margin-left: 0.5em;
   border-radius: 5px;
