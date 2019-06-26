@@ -1,6 +1,6 @@
 # Schwer
 
-_adjective_ | /ʃveːɐ/ | _meaning_: heavy
+_German_ | _adjective_ | /ʃveːɐ/ | _meaning_: heavy
 
 A single binary application with built-in web front-end that can produce cpu/mem load.
 
@@ -40,6 +40,15 @@ You can also use Schwer via its HTTP API.
 | -------- | ------ | ------ | ------------- |  ----------- |
 | `/cpu`   | `GET`  | `-`    | 200 OK        | Returns an array of CPU utilisation levels per core (e.g. `[49, 34, 50, 32]` in case of a machine with 4 cores). |
 | `/cpu`   | `POST` | `pct` - load level % (0-100) | 202 Accepted<br>400 Bad Request | Sets the load level for Schwer to produce. |
+
+
+## Limitations
+
+Under the hood Schwer spins up a goroutine for each CPU core in order to make them busy. However,
+due to the nature of the Go runtime and scheduler, a goroutine cannot tell which CPU core it is
+running on. Hence, Schwer cannot control the load of a specific CPU core (i.e. one cannot set 70%
+load for CPU core #1 and 15% load for CPU core #2, etc.). For this reason Schwer tries to load all
+CPU cores equally.
 
 
 ## TODO
