@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"math"
+	"math/rand"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -41,6 +43,7 @@ type loadController struct {
 	memMtx    sync.RWMutex
 	memAlloc  [][]byte
 	memChange chan int
+	pageSize  int
 }
 
 // newLoadController returns a configured loadController.
@@ -51,6 +54,7 @@ func newLoadController(cpuCores int, l *log.Logger) *loadController {
 		cpuChange: make([]chan time.Duration, cpuCores),
 		cpuUtil:   make([]int, 4),
 		memChange: make(chan int, 1),
+		pageSize:  os.Getpagesize(),
 		logger:    l,
 	}
 }
@@ -119,7 +123,6 @@ func (lc *loadController) cpuUsage() []int {
 }
 
 // cpuLoad is a CPU load goroutine.
-// TODO: make this be better
 func (lc *loadController) cpuLoad(n int, changed <-chan time.Duration) {
 	defer lc.wg.Done()
 
@@ -127,7 +130,8 @@ func (lc *loadController) cpuLoad(n int, changed <-chan time.Duration) {
 	defer runtime.UnlockOSThread()
 
 	sleep := lc.sleepDuration(defaultCPULoadPct)
-	lc.logger.Printf(sleepMsg, n, sleep)
+
+	// TODO: improve busy loop
 	for {
 		select {
 		case <-lc.cancel:
@@ -169,11 +173,6 @@ func (lc *loadController) memMonitor() {
 				continue
 			}
 			lc.saveMemUsage(memStat.Total, memStat.Available, memStat.Used, memStat.UsedPercent)
-
-			var m runtime.MemStats
-			runtime.ReadMemStats(&m)
-			lc.logger.Println("MEM STATS:", m.Alloc/megaBytes, m.TotalAlloc/megaBytes, m.Sys/megaBytes)
-
 			time.Sleep(time.Second)
 		}
 	}
@@ -211,11 +210,19 @@ func (lc *loadController) memLoad() {
 		case size := <-lc.memChange:
 			lc.memAlloc = nil
 			runtime.GC()
-			for i := 0; i < size; i++ {
-				// Allocate memory in 1 MB chunks.
-				lc.memAlloc = append(lc.memAlloc, make([]byte, megaBytes))
+			for page := 0; page < size*megaBytes/lc.pageSize; page++ {
+				// Allocate memory in page-sized chunks.
+				chunk := make([]byte, lc.pageSize)
+				lc.memAlloc = append(lc.memAlloc, chunk)
 			}
-			lc.logger.Printf("mem alloc size: %d\n", len(lc.memAlloc))
+			lc.logger.Printf("mem alloc - page size: %d bytes, pages: %d, size: %d MB\n", lc.pageSize, len(lc.memAlloc), len(lc.memAlloc)*lc.pageSize/megaBytes)
+		case <-time.After(time.Second):
+			// Make sure we use the allocated memory, so it won't get swapped.
+			if lc.memAlloc != nil {
+				for page := 0; page < len(lc.memAlloc); page++ {
+					lc.memAlloc[page][rand.Intn(lc.pageSize)]++
+				}
+			}
 		}
 	}
 }
