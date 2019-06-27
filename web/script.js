@@ -18,6 +18,24 @@ $(document).ready(function() {
     });
   });
 
+  // This function submits the memory allocation size update form using AJAX
+  // without redirecting to the /mem endpoint.
+  $("#mem-size").submit(function(e) {
+    e.preventDefault();
+
+    var form = $(this);
+    var url = form.attr("action");
+
+    $.ajax({
+      type: "POST",
+      url: url,
+      data: form.serialize(),
+      success: function(data) {
+        alert(data);
+      }
+    });
+  });
+
   const colorBlack = "#000000";
   const colorWhite = "#ffffff";
 
@@ -83,7 +101,7 @@ $(document).ready(function() {
     }
   };
 
-  const memMeterWidth = 502;
+  const memMeterWidth = 602;
   const memMeterHeight = 102;
 
   function drawMem(data) {
@@ -173,6 +191,8 @@ $(document).ready(function() {
       success: function(data) {
         fb.text(JSON.stringify(data));
         drawMem(data);
+        // Update max. allocatable memory value in the form.
+        $("#mem-size-input").attr({"max": data.available});
       },
       error: function() {
         fb.text(errServerDown);

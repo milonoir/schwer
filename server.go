@@ -86,6 +86,27 @@ func memHandler(lc *loadController) http.Handler {
 				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
 			}
 			w.Write(b)
+		case http.MethodPost:
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
+				return
+			}
+
+			v := r.FormValue("size")
+			size, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				http.Error(w, "Invalid size value", http.StatusBadRequest)
+				return
+			}
+
+			if size < 0 {
+				http.Error(w, "Size value must be positive", http.StatusBadRequest)
+				return
+			}
+
+			lc.updateMemLoad(int(size))
+			w.WriteHeader(http.StatusAccepted)
+			w.Write([]byte("Memory allocation size updated"))
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}

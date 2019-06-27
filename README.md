@@ -31,6 +31,10 @@ You should see something like this:
 The amount of CPU load percentage Schwer can produce can be specified by typing a number between
 0 - 100 into the little input field and hitting enter or clicking the `[Update]` button.
 
+The size of extra memory to be allocated (on top of the memory consumption of Schwer itself) can be
+set by typing a positive integer (in MB) into the little input field and hitting enter or clicking
+the `[Update]` button.
+
 
 ### API
 
@@ -40,6 +44,8 @@ You can also use Schwer via its HTTP API.
 | -------- | ------ | ------ | ------------- |  ----------- |
 | `/cpu`   | `GET`  | `-`    | 200 OK        | Returns an array of CPU utilisation levels per core (e.g. `[49, 34, 50, 32]` in case of a machine with 4 cores). |
 | `/cpu`   | `POST` | `pct` - load level % (0-100) | 202 Accepted<br>400 Bad Request | Sets the load level for Schwer to produce. |
+| `/mem`   | `GET`  | `-`    | 200 OK        | Returns a JSON object of memory stats in MB (e.g. `{"total": 16384, "available": 5413, "used": 10966, "usedpct": 67}`). |
+| `/mem`   | `POST` | `size` - memory allocation size in MB | 202 Accepted<br>400 Bad Request | Schwer allocates this amount of extra memory. |
 
 
 ## Limitations
@@ -55,6 +61,6 @@ CPU cores equally.
 
 - [ ] Flesh out CPU load
 - [x] CPU load monitor
-- [ ] Memory load
-- [ ] Memory load monitor
+- [ ] Flesh out memory load
+- [x] Memory load monitor
 - [ ] Make it work on Windows

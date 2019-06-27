@@ -13,9 +13,10 @@ import (
 
 const (
 	// defaultCPULoadPct is used on start-up.
-	defaultCPULoadPct = 10
+	defaultCPULoadPct = 0
 
 	megaBytes = 1 << 20
+	sleepMsg  = "thread %d sleep duration: %s\n"
 )
 
 type memoryStats struct {
@@ -36,8 +37,10 @@ type loadController struct {
 	cpuUtil   []int
 	cpuMtx    sync.RWMutex
 
-	memStat memoryStats
-	memMtx  sync.RWMutex
+	memStat   memoryStats
+	memMtx    sync.RWMutex
+	memAlloc  [][]byte
+	memChange chan int
 }
 
 // newLoadController returns a configured loadController.
@@ -47,6 +50,7 @@ func newLoadController(cpuCores int, l *log.Logger) *loadController {
 		cpuCores:  cpuCores,
 		cpuChange: make([]chan time.Duration, cpuCores),
 		cpuUtil:   make([]int, 4),
+		memChange: make(chan int, 1),
 		logger:    l,
 	}
 }
@@ -55,9 +59,10 @@ func newLoadController(cpuCores int, l *log.Logger) *loadController {
 func (lc *loadController) start() {
 	lc.logger.Println("starting load")
 
-	lc.wg.Add(2)
+	lc.wg.Add(3)
 	go lc.cpuMonitor()
 	go lc.memMonitor()
+	go lc.memLoad()
 
 	lc.wg.Add(lc.cpuCores)
 	for i := 0; i < lc.cpuCores; i++ {
@@ -114,6 +119,7 @@ func (lc *loadController) cpuUsage() []int {
 }
 
 // cpuLoad is a CPU load goroutine.
+// TODO: make this be better
 func (lc *loadController) cpuLoad(n int, changed <-chan time.Duration) {
 	defer lc.wg.Done()
 
@@ -121,22 +127,24 @@ func (lc *loadController) cpuLoad(n int, changed <-chan time.Duration) {
 	defer runtime.UnlockOSThread()
 
 	sleep := lc.sleepDuration(defaultCPULoadPct)
-	lc.logger.Printf("thread %d sleep duration: %s\n", n, sleep)
+	lc.logger.Printf(sleepMsg, n, sleep)
 	for {
 		select {
 		case <-lc.cancel:
 			return
 		case sleep = <-changed:
-			lc.logger.Printf("thread %d new sleep duration: %s\n", n, sleep)
-		default:
+			lc.logger.Printf(sleepMsg, n, sleep)
+		case <-time.After(time.Millisecond - sleep):
 			time.Sleep(sleep)
+		default:
+			// Default branch is required to keep the infinite loop busy.
 		}
 	}
 }
 
 // sleepDuration returns how long the CPU goroutine should sleep in a second.
 func (lc *loadController) sleepDuration(pct int64) time.Duration {
-	return time.Duration(100-pct) * 10 * time.Microsecond
+	return time.Duration(100-pct) * 10 * time.Millisecond
 }
 
 // updateCPULoad updates the sleep duration of all CPU load goroutines.
@@ -161,6 +169,11 @@ func (lc *loadController) memMonitor() {
 				continue
 			}
 			lc.saveMemUsage(memStat.Total, memStat.Available, memStat.Used, memStat.UsedPercent)
+
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			lc.logger.Println("MEM STATS:", m.Alloc/megaBytes, m.TotalAlloc/megaBytes, m.Sys/megaBytes)
+
 			time.Sleep(time.Second)
 		}
 	}
@@ -181,4 +194,33 @@ func (lc *loadController) memUsage() memoryStats {
 	defer lc.cpuMtx.RUnlock()
 
 	return lc.memStat
+}
+
+func (lc *loadController) memLoad() {
+	defer lc.wg.Done()
+	defer func() {
+		lc.memAlloc = nil
+		runtime.GC()
+	}()
+
+	for {
+		// Do not use default branch in select as we don't want a busy loop.
+		select {
+		case <-lc.cancel:
+			return
+		case size := <-lc.memChange:
+			lc.memAlloc = nil
+			runtime.GC()
+			for i := 0; i < size; i++ {
+				// Allocate memory in 1 MB chunks.
+				lc.memAlloc = append(lc.memAlloc, make([]byte, megaBytes))
+			}
+			lc.logger.Printf("mem alloc size: %d\n", len(lc.memAlloc))
+		}
+	}
+}
+
+func (lc *loadController) updateMemLoad(size int) {
+	lc.logger.Printf("updating mem load to %d MB\n", size)
+	lc.memChange <- size
 }
