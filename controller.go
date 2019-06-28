@@ -49,11 +49,11 @@ func (c *Controller) UpdateMemLoad(size int64) {
 }
 
 // CPUUtilisationLevels returns the latest CPU utilisation levels from the CPU load monitor.
-func (c *Controller) CPUUtilisationLevels() resource.CPULevels {
-	return c.cpuMonitor.Usage().(resource.CPULevels)
+func (c *Controller) CPUUtilisationLevels() interface{} {
+	return c.cpuMonitor.Usage()
 }
 
 // MemStats returns the latest memory stats from the memory load monitor.
-func (c *Controller) MemStats() resource.MemStats {
-	return c.memMonitor.Usage().(resource.MemStats)
+func (c *Controller) MemStats() interface{} {
+	return c.memMonitor.Usage()
 }

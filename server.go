@@ -12,6 +12,11 @@ import (
 	"github.com/rakyll/statik/fs"
 )
 
+const (
+	tplServerError = "Server error: %s"
+	tplParseError  = "Unable to parse request: %s"
+)
+
 // newServer returns a new configured http.Server with all endpoints registered to it.
 func newServer(port uint64, c *Controller, l *log.Logger) *http.Server {
 	router := http.NewServeMux()
@@ -42,71 +47,67 @@ func indexHandler() http.Handler {
 // - (GET)  getting current CPU utilisation levels;
 // - (POST) updating CPU load percentage.
 func cpuHandler(c *Controller) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			b, err := json.Marshal(c.CPUUtilisationLevels())
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
-			}
-			w.Write(b)
-		case http.MethodPost:
-			if err := r.ParseForm(); err != nil {
-				http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
-				return
-			}
-
-			v := r.FormValue("pct")
-			pct, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				http.Error(w, "Invalid percentage value", http.StatusBadRequest)
-				return
-			}
-
+	return makeHandler(
+		c.CPUUtilisationLevels,
+		c.UpdateCPULoad,
+		"pct",
+		func(pct int64) error {
 			if pct < 0 || pct > 100 {
-				http.Error(w, "Percentage value must be between 0-100", http.StatusBadRequest)
-				return
+				return fmt.Errorf("Percentage value must be between 0-100, got: %d", pct)
 			}
-
-			c.UpdateCPULoad(pct)
-			w.WriteHeader(http.StatusAccepted)
-			w.Write([]byte("CPU load percentage updated"))
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-		}
-	})
+			return nil
+		},
+		"CPU load percentage updated",
+	)
 }
 
+// memHandler handles requests for:
+// - (GET)  getting current memory stats;
+// - (POST) updating the size of the allocation in memory load.
 func memHandler(c *Controller) http.Handler {
+	return makeHandler(
+		c.MemStats,
+		c.UpdateMemLoad,
+		"size",
+		func(size int64) error {
+			if size < 0 {
+				return fmt.Errorf("Size value must be positive: %d", size)
+			}
+			return nil
+		},
+		"Memory allocation size updated",
+	)
+}
+
+func makeHandler(getFunc func() interface{}, setFunc func(int64), formValue string, validator func(int64) error, successMsg string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			b, err := json.Marshal(c.MemStats())
+			b, err := json.Marshal(getFunc())
 			if err != nil {
-				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf(tplServerError, err), http.StatusInternalServerError)
 			}
 			w.Write(b)
 		case http.MethodPost:
 			if err := r.ParseForm(); err != nil {
-				http.Error(w, fmt.Sprintf("Unable to parse request: %s", err), http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf(tplParseError, err), http.StatusBadRequest)
 				return
 			}
 
-			v := r.FormValue("size")
-			size, err := strconv.ParseInt(v, 10, 64)
+			v := r.FormValue(formValue)
+			intValue, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
-				http.Error(w, "Invalid size value", http.StatusBadRequest)
+				http.Error(w, fmt.Sprintf("Invalid %s value", formValue), http.StatusBadRequest)
 				return
 			}
 
-			if size < 0 {
-				http.Error(w, "Size value must be positive", http.StatusBadRequest)
-				return
+			if err := validator(intValue); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
 			}
 
-			c.UpdateMemLoad(size)
+			setFunc(intValue)
 			w.WriteHeader(http.StatusAccepted)
-			w.Write([]byte("Memory allocation size updated"))
+			w.Write([]byte(successMsg))
 		default:
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
