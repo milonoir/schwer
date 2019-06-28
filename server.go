@@ -13,11 +13,11 @@ import (
 )
 
 // newServer returns a new configured http.Server with all endpoints registered to it.
-func newServer(port uint64, ld *loadController, l *log.Logger) *http.Server {
+func newServer(port uint64, c *Controller, l *log.Logger) *http.Server {
 	router := http.NewServeMux()
 	router.Handle("/", indexHandler())
-	router.Handle("/cpu", cpuHandler(ld))
-	router.Handle("/mem", memHandler(ld))
+	router.Handle("/cpu", cpuHandler(c))
+	router.Handle("/mem", memHandler(c))
 
 	return &http.Server{
 		Addr:         ":" + strconv.FormatUint(port, 10),
@@ -41,11 +41,11 @@ func indexHandler() http.Handler {
 // cpuHandler handles requests for:
 // - (GET)  getting current CPU utilisation levels;
 // - (POST) updating CPU load percentage.
-func cpuHandler(lc *loadController) http.Handler {
+func cpuHandler(c *Controller) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			b, err := json.Marshal(lc.cpuUsage())
+			b, err := json.Marshal(c.CPUUtilisationLevels())
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
 			}
@@ -68,7 +68,7 @@ func cpuHandler(lc *loadController) http.Handler {
 				return
 			}
 
-			lc.updateCPULoad(pct)
+			c.UpdateCPULoad(pct)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte("CPU load percentage updated"))
 		default:
@@ -77,11 +77,11 @@ func cpuHandler(lc *loadController) http.Handler {
 	})
 }
 
-func memHandler(lc *loadController) http.Handler {
+func memHandler(c *Controller) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			b, err := json.Marshal(lc.memUsage())
+			b, err := json.Marshal(c.MemStats())
 			if err != nil {
 				http.Error(w, fmt.Sprintf("Server error: %s", err), http.StatusInternalServerError)
 			}
@@ -104,7 +104,7 @@ func memHandler(lc *loadController) http.Handler {
 				return
 			}
 
-			lc.updateMemLoad(int(size))
+			c.UpdateMemLoad(size)
 			w.WriteHeader(http.StatusAccepted)
 			w.Write([]byte("Memory allocation size updated"))
 		default:

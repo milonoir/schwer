@@ -10,6 +10,9 @@ import (
 	"os/signal"
 	"runtime"
 	"time"
+
+	"github.com/milonoir/schwer/resource/cpu"
+	"github.com/milonoir/schwer/resource/memory"
 )
 
 const (
@@ -43,13 +46,19 @@ func _main() error {
 	// Setup logger.
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
-	// Setup load handlers.
-	lc := newLoadController(runtime.NumCPU(), logger)
-	lc.start()
-	defer lc.stop()
+	// Setup load and monitoring.
+	cores := runtime.NumCPU()
+	c := NewController(
+		cpu.NewLoadController(cores, logger),
+		memory.NewLoadController(logger),
+		cpu.NewMonitor(cores, logger),
+		memory.NewMonitor(logger),
+	)
+	c.Start()
+	defer c.Stop()
 
 	// Setup HTTP server.
-	server := newServer(*port, lc, logger)
+	server := newServer(*port, c, logger)
 
 	// Setup signal handler.
 	sigCh := make(chan os.Signal, 1)
