@@ -49,8 +49,8 @@ func _main() error {
 	// Setup load and monitoring.
 	cores := runtime.NumCPU()
 	c := NewController(
-		cpu.NewLoadController(cores, logger),
-		memory.NewLoadController(logger),
+		cpu.NewLoad(cores, logger),
+		memory.NewLoad(logger),
 		cpu.NewMonitor(cores, logger),
 		memory.NewMonitor(logger),
 	)

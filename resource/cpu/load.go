@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// LoadController represents a CPU load controller.
-type LoadController struct {
+// Load represents a CPU load.
+type Load struct {
 	cancel chan struct{}
 	wg     sync.WaitGroup
 	l      *log.Logger
@@ -17,9 +17,9 @@ type LoadController struct {
 	change []chan time.Duration
 }
 
-// NewLoadController returns a configured CPU load controller.
-func NewLoadController(cores int, l *log.Logger) *LoadController {
-	return &LoadController{
+// NewLoad returns a configured CPU load.
+func NewLoad(cores int, l *log.Logger) *Load {
+	return &Load{
 		cores:  cores,
 		change: make([]chan time.Duration, cores),
 		l:      l,
@@ -27,49 +27,49 @@ func NewLoadController(cores int, l *log.Logger) *LoadController {
 }
 
 // Start starts up the load goroutines.
-func (c *LoadController) Start() {
-	c.cancel = make(chan struct{})
+func (l *Load) Start() {
+	l.cancel = make(chan struct{})
 
-	c.wg.Add(c.cores)
-	for i := 0; i < c.cores; i++ {
+	l.wg.Add(l.cores)
+	for i := 0; i < l.cores; i++ {
 		ch := make(chan time.Duration, 1)
-		c.change[i] = ch
-		go c.load(i, ch)
+		l.change[i] = ch
+		go l.load(i, ch)
 	}
 
 }
 
 // Stop signals all goroutines to stop and waits for them to return.
-func (c *LoadController) Stop() {
-	close(c.cancel)
-	c.wg.Wait()
+func (l *Load) Stop() {
+	close(l.cancel)
+	l.wg.Wait()
 }
 
 // Update updates the load percentage of all goroutines.
-func (c *LoadController) Update(pct int64) {
-	c.l.Printf("updating cpu load percentage: %d%%\n", pct)
-	for _, ch := range c.change {
-		ch <- c.sleepDuration(pct)
+func (l *Load) Update(pct int64) {
+	l.l.Printf("updating cpu load percentage: %d%%\n", pct)
+	for _, ch := range l.change {
+		ch <- l.sleepDuration(pct)
 	}
 }
 
 // cpuLoad is a CPU load goroutine.
-func (c *LoadController) load(n int, changed <-chan time.Duration) {
-	defer c.wg.Done()
+func (l *Load) load(n int, changed <-chan time.Duration) {
+	defer l.wg.Done()
 
 	// Bind the goroutine to an OS thread, so the scheduler won't move it around.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	sleep := c.sleepDuration(0)
+	sleep := l.sleepDuration(0)
 
 	// TODO: improve busy loop!
 	for {
 		select {
-		case <-c.cancel:
+		case <-l.cancel:
 			return
 		case sleep = <-changed:
-			c.l.Printf("thread %d sleep duration: %s\n", n, sleep)
+			l.l.Printf("thread %d sleep duration: %s\n", n, sleep)
 		case <-time.After(time.Millisecond - sleep):
 			time.Sleep(sleep)
 		default:
@@ -79,6 +79,6 @@ func (c *LoadController) load(n int, changed <-chan time.Duration) {
 }
 
 // sleepDuration returns how long the CPU goroutine should sleep in a second.
-func (c *LoadController) sleepDuration(pct int64) time.Duration {
+func (l *Load) sleepDuration(pct int64) time.Duration {
 	return time.Duration(100-pct) * 10 * time.Millisecond
 }

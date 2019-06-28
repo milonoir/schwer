@@ -9,12 +9,8 @@ import (
 	"time"
 )
 
-const (
-	megaBytes = 1 << 20
-)
-
-// LoadController represents a CPU load controller.
-type LoadController struct {
+// Load represents a memory load.
+type Load struct {
 	cancel chan struct{}
 	wg     sync.WaitGroup
 	l      *log.Logger
@@ -24,9 +20,9 @@ type LoadController struct {
 	pageSize int
 }
 
-// NewLoadController returns a configured memory load controller.
-func NewLoadController(l *log.Logger) *LoadController {
-	return &LoadController{
+// NewLoad returns a configured memory load.
+func NewLoad(l *log.Logger) *Load {
+	return &Load{
 		change:   make(chan int, 1),
 		pageSize: os.Getpagesize(),
 		l:        l,
@@ -34,51 +30,51 @@ func NewLoadController(l *log.Logger) *LoadController {
 }
 
 // Start starts up the load goroutine.
-func (c *LoadController) Start() {
-	c.cancel = make(chan struct{})
+func (l *Load) Start() {
+	l.cancel = make(chan struct{})
 
-	c.wg.Add(1)
-	go c.load()
+	l.wg.Add(1)
+	go l.load()
 }
 
 // Stop signals the load goroutine to stop and waits for it to return.
-func (c *LoadController) Stop() {
-	close(c.cancel)
-	c.wg.Wait()
+func (l *Load) Stop() {
+	close(l.cancel)
+	l.wg.Wait()
 }
 
 // Update updates the allocated memory size.
-func (c *LoadController) Update(size int64) {
-	c.l.Printf("updating mem load to %d MB\n", size)
-	c.change <- int(size)
+func (l *Load) Update(size int64) {
+	l.l.Printf("updating mem load to %d MB\n", size)
+	l.change <- int(size)
 }
 
-func (c *LoadController) load() {
-	defer c.wg.Done()
+func (l *Load) load() {
+	defer l.wg.Done()
 	defer func() {
-		c.alloc = nil
+		l.alloc = nil
 		runtime.GC()
 	}()
 
 	for {
 		// Do not use default branch in select as we don't want a busy loop.
 		select {
-		case <-c.cancel:
+		case <-l.cancel:
 			return
-		case size := <-c.change:
-			c.alloc = nil
+		case size := <-l.change:
+			l.alloc = nil
 			runtime.GC()
-			for page := 0; page < size*megaBytes/c.pageSize; page++ {
+			for page := 0; page < size*megaBytes/l.pageSize; page++ {
 				// Allocate memory in page-sized chunks.
-				chunk := make([]byte, c.pageSize)
-				c.alloc = append(c.alloc, chunk)
+				chunk := make([]byte, l.pageSize)
+				l.alloc = append(l.alloc, chunk)
 			}
-			c.l.Printf("mem alloc - page size: %d bytes, pages: %d, size: %d MB\n", c.pageSize, len(c.alloc), len(c.alloc)*c.pageSize/megaBytes)
+			l.l.Printf("mem alloc - page size: %d bytes, pages: %d, size: %d MB\n", l.pageSize, len(l.alloc), len(l.alloc)*l.pageSize/megaBytes)
 		case <-time.After(time.Second):
 			// Make sure we use the allocated memory, so it won't get swapped.
-			if c.alloc != nil {
-				for page := 0; page < len(c.alloc); page++ {
-					c.alloc[page][rand.Intn(c.pageSize)]++
+			if l.alloc != nil {
+				for page := 0; page < len(l.alloc); page++ {
+					l.alloc[page][rand.Intn(l.pageSize)]++
 				}
 			}
 		}
