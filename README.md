@@ -59,8 +59,6 @@ CPU cores equally.
 
 ## TODO
 
-- [ ] Flesh out CPU load
 - [x] CPU load monitor
-- [ ] Flesh out memory load
 - [x] Memory load monitor
 - [ ] Make it work on Windows
